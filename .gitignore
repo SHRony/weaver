@@ -1,0 +1,15 @@
+# Reading-week reference clones (vLLM / SGLang / nanoGPT) — not part of this project
+reading/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Tooling caches
+.pytest_cache/
+.ruff_cache/
+.pyright/
+
+# OS
+.DS_Store
