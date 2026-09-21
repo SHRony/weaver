@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+asyncio_mode = "auto"     # async test functions run without a per-test decorator
 
 [tool.pyright]
 typeCheckingMode = "strict"
@@ -22,5 +23,6 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RET", "C4"]
 dev = [
     "pyright>=1.1.411",
     "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
     "ruff>=0.16.4",
 ]
