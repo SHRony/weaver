@@ -23,7 +23,7 @@ Docs: docs.python.org/3/reference/expressions.html#yieldexpr
 from __future__ import annotations
 
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from math import ceil
 
 from miniserve.instrument import BlockPool, allocate, timed
@@ -76,7 +76,7 @@ class Engine:
     def get_pool_size(self):
       return self._block_pool.get_size()
     @timed
-    def generate(self, request: Request) -> Iterator[Output]:
+    def generate(self, request: Request) -> Generator[Output, None, None]:
       with allocate(self._block_pool, self._blocks_needed(request)) as _:
         sequence: TokenSequence = TokenSequence(self.tokenizer.encode(request.prompt))
         sampling_param:SamplingParams = request.params
@@ -99,6 +99,7 @@ class Engine:
           yield Output(request_id=request.request_id,
             new_token_id=token_id, text=self.tokenizer.decode([token_id]),
             finished=finished, finish_reason=finish_reason)
+    
     def _blocks_needed(self, request: Request) -> int:
       prompt_tokens = len(self.tokenizer.encode(request.prompt))
       return ceil((prompt_tokens + request.params.max_tokens) / self._block_size)
@@ -132,3 +133,7 @@ class Engine:
             to_remove.append(generator)
         for generator in to_remove:
           generators.remove(generator)
+    def has_enough_blocks(self, request: Request) -> bool:
+      return self._block_pool.has_available( self._blocks_needed(request))
+    def can_never_handle_request(self, request: Request) -> bool:
+      return self._pool_size < self._blocks_needed(request)
