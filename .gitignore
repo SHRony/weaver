@@ -1,6 +1,9 @@
 # Reading-week reference clones (vLLM / SGLang / nanoGPT) — not part of this project
 reading/
 
+# Personal notes — theory logs, learning journal, blog drafts. Not project docs.
+notes/
+
 # Python
 __pycache__/
 *.py[cod]
