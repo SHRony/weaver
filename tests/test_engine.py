@@ -1,9 +1,9 @@
 """Day 5 — engine tests: laziness, stops, disconnect, batching, admission."""
 import pytest
 
-from miniserve.engine import Engine
-from miniserve.sampler import CharTokenizer, GreedySampler, TopKSampler
-from miniserve.types import Output, Request, SamplingParams
+from weaver.engine import Engine
+from weaver.sampler import CharTokenizer, GreedySampler, TopKSampler
+from weaver.types import Output, Request, SamplingParams
 
 
 def make_engine(pool_size: int = 64) -> Engine:

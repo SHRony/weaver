@@ -1,6 +1,6 @@
 import pytest
 
-from miniserve.sampler import (
+from weaver.sampler import (
     CharTokenizer,
     GreedySampler,
     Sampler,

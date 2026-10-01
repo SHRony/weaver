@@ -4,7 +4,7 @@ Write the day-1 and day-3/4/5 tests yourself — writing the test first is
 often the fastest way to discover what the API should be.
 """
 
-from miniserve.sequence import TokenSequence
+from weaver.sequence import TokenSequence
 
 
 def test_len_and_index() -> None:

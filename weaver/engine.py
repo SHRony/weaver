@@ -26,10 +26,10 @@ from collections import deque
 from collections.abc import Generator, Iterator
 from math import ceil
 
-from miniserve.instrument import BlockPool, allocate, timed
-from miniserve.sampler import Sampler, Tokenizer
-from miniserve.sequence import TokenSequence
-from miniserve.types import Output, Request, SamplingParams
+from weaver.instrument import BlockPool, allocate, timed
+from weaver.sampler import Sampler, Tokenizer
+from weaver.sequence import TokenSequence
+from weaver.types import Output, Request, SamplingParams
 
 
 class FakeModel:

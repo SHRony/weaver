@@ -5,10 +5,10 @@ import contextlib
 from collections.abc import AsyncGenerator, Generator
 from dataclasses import dataclass, field
 
-from miniserve.engine import Engine
-from miniserve.sampler import Sampler, Tokenizer
-from miniserve.sequence import TokenSequence
-from miniserve.types import Output, Request
+from weaver.engine import Engine
+from weaver.sampler import Sampler, Tokenizer
+from weaver.sequence import TokenSequence
+from weaver.types import Output, Request
 
 # import asyncio
 # from collections import deque
@@ -17,11 +17,11 @@ from miniserve.types import Output, Request
 # from math import ceil
 
 
-# from miniserve.engine import FakeModel
-# from miniserve.instrument import BlockPool
-# from miniserve.sampler import Sampler, Tokenizer
-# from miniserve.sequence import TokenSequence
-# from miniserve.types import Output, Request
+# from weaver.engine import FakeModel
+# from weaver.instrument import BlockPool
+# from weaver.sampler import Sampler, Tokenizer
+# from weaver.sequence import TokenSequence
+# from weaver.types import Output, Request
 @dataclass
 class Inflight:
     request: Request  # the client's untouched data

@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from miniserve.instrument import BlockPool, allocate, retry, timed
+from weaver.instrument import BlockPool, allocate, retry, timed
 
 
 @timed
