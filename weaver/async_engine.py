@@ -5,7 +5,7 @@ import contextlib
 from collections.abc import AsyncGenerator, Generator
 from dataclasses import dataclass, field
 
-from weaver.engine import Engine
+from weaver.engine import Engine, Model
 from weaver.sampler import Sampler, Tokenizer
 from weaver.sequence import TokenSequence
 from weaver.types import Output, Request
@@ -33,8 +33,10 @@ class Inflight:
 
 
 class AsyncEngine:
-    def __init__(self, tokenizer: Tokenizer, sampler: Sampler, pool_size: int) -> None:
-        self._engine = Engine(tokenizer, sampler, pool_size)
+    def __init__(
+        self, tokenizer: Tokenizer, sampler: Sampler, pool_size: int, model: Model
+    ) -> None:
+        self._engine = Engine(tokenizer, sampler, pool_size, model)
         self._inbound: asyncio.Queue[Inflight] = asyncio.Queue()
         self._response_queues: dict[str, asyncio.Queue[Output]] = {}
         self._response_generators: dict[str, Generator[Output, None, None]] = {}
@@ -126,7 +128,21 @@ class AsyncEngine:
                         )
                         inflight.output_queue.put_nowait(output)
                 except StopIteration:
+                    # normal end — the final Output(finished=True) was already queued
                     to_remove.append(inflight)
+                except Exception:
+                    # model/sampler crashed mid-request: the client must be told, 
+                    # or it waits forever
+                    inflight.output_queue.put_nowait(Output(
+                        request_id=inflight.request.request_id,
+                        new_token_id=-1,
+                        text="",
+                        finished=True,
+                        finish_reason="abort",
+                    ))
+                    to_remove.append(inflight)
+
+                    
             for inflight in to_remove:
                 self._running_requests.remove(inflight)
                 self._response_queues.pop(inflight.request.request_id)

@@ -26,22 +26,14 @@ from collections import deque
 from collections.abc import Generator, Iterator
 from math import ceil
 
+import torch
+
 from weaver.instrument import BlockPool, allocate, timed
+from weaver.model.model import Model
 from weaver.sampler import Sampler, Tokenizer
 from weaver.sequence import TokenSequence
 from weaver.types import Output, Request, SamplingParams
 
-
-class FakeModel:
-    def __init__(self, seed: int) -> None:
-      self._seed = seed
-    def forward(self, sequence: TokenSequence) -> list[float]:
-      sm = 0
-      for token in sequence:
-        sm += token
-      sm ^= self._seed
-      sm %= 26
-      return [1/(abs(i - sm) + 1) + i * 1e-6 for i in range(26)]
 
 class Engine:
     """A fake engine. Generates tokens by sampling from made-up logits.
@@ -66,10 +58,16 @@ class Engine:
     pytest` passes, and you can explain to yourself why each construct is
     here rather than a plain function or dict.
     """
-    def __init__(self, tokenizer: Tokenizer, sampler: Sampler, pool_size:int) -> None:
+    def __init__(
+      self, 
+      tokenizer: Tokenizer,
+      sampler: Sampler,
+      pool_size:int,
+      model: Model
+      ) -> None:
         self.tokenizer = tokenizer
         self.sampler = sampler
-        self._model = FakeModel(42)
+        self._model = model
         self._block_pool = BlockPool(pool_size)
         self._block_size = 16
         self._pool_size = pool_size
@@ -83,9 +81,8 @@ class Engine:
         finished = False
         prompt_len = len(sequence)
         while not finished:
-          logits = self._model.forward(sequence)
-          token_pos = self.sampler.sample(logits)
-          token_id = token_pos + ord('a')
+          logits = self._model.forward(torch.tensor(sequence).reshape(1, -1))
+          token_id = self.sampler.sample(logits[0, -1])
           sequence.append(token_id)
           generated_text = self.tokenizer.decode(list(sequence)[prompt_len:])
           if sampling_param.stop and generated_text.endswith(sampling_param.stop):

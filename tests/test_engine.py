@@ -2,12 +2,15 @@
 import pytest
 
 from weaver.engine import Engine
+from weaver.model.model import FakeModel
 from weaver.sampler import CharTokenizer, GreedySampler, TopKSampler
 from weaver.types import Output, Request, SamplingParams
 
 
 def make_engine(pool_size: int = 64) -> Engine:
-    return Engine(CharTokenizer(), GreedySampler(), pool_size=pool_size)
+    return Engine(
+        CharTokenizer(), GreedySampler(), pool_size=pool_size, model=FakeModel(42)
+    )
 
 def make_request(rid: str = "r1", max_tokens: int = 8) -> Request:
     return Request(rid, "hello", SamplingParams(max_tokens=max_tokens), 0.0)
@@ -65,6 +68,7 @@ def test_impossible_request_rejected() -> None:
 
 def test_any_sampler_fits_the_seam() -> None:
     for sampler in (GreedySampler(), TopKSampler(k=3, seed=1)):
-        e = Engine(CharTokenizer(), sampler, pool_size=8).generate(make_request())
+        engine = Engine(CharTokenizer(), sampler, pool_size=8, model=FakeModel(42))
+        e = engine.generate(make_request())
         outs = list(e)
         assert len(outs) == 8 and all(isinstance(o, Output) for o in outs)

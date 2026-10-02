@@ -1,12 +1,13 @@
 import asyncio
 
 from weaver.async_engine import AsyncEngine
+from weaver.model.model import FakeModel
 from weaver.sampler import CharTokenizer, GreedySampler, TopKSampler
 from weaver.types import Output, Request, SamplingParams
 
 
 def make_engine(pool_size: int = 64) -> AsyncEngine:
-    return AsyncEngine(CharTokenizer(), GreedySampler(), pool_size)
+    return AsyncEngine(CharTokenizer(), GreedySampler(), pool_size, model=FakeModel(42))
 
 
 def make_request(
@@ -80,7 +81,7 @@ async def test_cancel_midstream_releases_blocks() -> None:
 
 async def test_runs_with_both_samplers() -> None:
     for sampler in (GreedySampler(), TopKSampler(k=3, seed=1)):
-        e = AsyncEngine(CharTokenizer(), sampler, 16)
+        e = AsyncEngine(CharTokenizer(), sampler, 16, model=FakeModel(42))
         await e.start()
         try:
             outs = [o async for o in e.generate(make_request(max_tokens=6))]

@@ -28,19 +28,40 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
+import torch
+
 
 @runtime_checkable
 class Sampler(Protocol):
-    def sample(self, logits: Sequence[float], /) -> int: ...
+    def sample(self, logits: torch.Tensor, /) -> int: ...
 
 
-class GreedySampler:
-    def sample(self, logits: Sequence[float], /) -> int:
+class GreedySamplerBase:
+    def sample(self, logits: torch.Tensor, /) -> int:
         ret = 0
         for i, logit in enumerate(logits):
             if logit > logits[ret]:
                 ret = i
         return ret
+
+
+class TopKSamplerBase:
+    def __init__(self, k: int, seed: int = 0) -> None:
+        if k < 1:
+            raise ValueError(f"k must be >= 1, got {k}")
+        self._k = k
+        self._random = random.Random(seed)
+
+    def sample(self, logits: torch.Tensor, /) -> int:
+        logits_copy = [(logit, i) for i, logit in enumerate (logits)]
+        logits_copy.sort(reverse=True)
+        top_k_indices = [i for _, i in logits_copy[: self._k]]
+        return self._random.choice(top_k_indices)
+
+
+class GreedySampler:
+    def sample(self, logits: torch.Tensor, /) -> int:
+        return int(logits.argmax())
 
 
 class TopKSampler:
@@ -50,12 +71,8 @@ class TopKSampler:
         self._k = k
         self._random = random.Random(seed)
 
-    def sample(self, logits: Sequence[float], /) -> int:
-        logits_copy = [(logit, i) for i, logit in enumerate(logits)]
-        logits_copy.sort(reverse=True)
-        top_k_indices = [i for _, i in logits_copy[: self._k]]
-        return self._random.choice(top_k_indices)
-
+    def sample(self, logits: torch.Tensor, /) -> int:
+        return int(self._random.choice(torch.topk(logits, self._k).indices))
 
 class Tokenizer(ABC):
     @abstractmethod

@@ -12,6 +12,8 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
+from weaver.model.model import Model
+
 
 @dataclass
 class GPT2Config:
@@ -118,7 +120,7 @@ class Transformer(nn.Module):
         self.h = nn.ModuleList([Block(config) for _ in range(config.n_layer)])
         self.ln_f = LayerNorm(config.n_embd)
         
-class GPT2(nn.Module):
+class GPT2(nn.Module, Model):
     def __init__(self, config : GPT2Config) -> None:
         super().__init__()
         self.transformer = Transformer(config)
