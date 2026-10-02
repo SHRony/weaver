@@ -146,13 +146,13 @@ class GPT2(nn.Module):
         """Loads pretrained GPT-2 weights from Hugging Face. Implements weight tying."""
         assert model_type in {"gpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"}
         # n_layer, n_head, n_embd are determined by model type
-        config_args = {
-            "gpt2": dict(n_layer=12, n_head=12, n_embd=768),
-            "gpt2-medium": dict(n_layer=24, n_head=16, n_embd=1024),
-            "gpt2-large": dict(n_layer=36, n_head=20, n_embd=1280),
-            "gpt2-xl": dict(n_layer=48, n_head=25, n_embd=1600),
+        configs: dict[str, GPT2Config] = {
+            "gpt2": GPT2Config(n_layer=12, n_head=12, n_embd=768),
+            "gpt2-medium": GPT2Config(n_layer=24, n_head=16, n_embd=1024),
+            "gpt2-large": GPT2Config(n_layer=36, n_head=20, n_embd=1280),
+            "gpt2-xl": GPT2Config(n_layer=48, n_head=25, n_embd=1600),
         }
-        config = GPT2Config(**config_args[model_type])
+        config = configs[model_type]
         model = cls(config)
         from transformers import GPT2LMHeadModel   # import HERE, not module top — keep HF a dev dep
         hf = GPT2LMHeadModel.from_pretrained(model_type)
