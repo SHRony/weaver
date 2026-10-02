@@ -153,14 +153,22 @@ class GPT2(nn.Module):
             "gpt2-xl": GPT2Config(n_layer=48, n_head=25, n_embd=1600),
         }
         config = configs[model_type]
-        model = cls(config)
-        from transformers import GPT2LMHeadModel   # import HERE, not module top — keep HF a dev dep
-        hf = GPT2LMHeadModel.from_pretrained(model_type)
-        # walk hf.state_dict(): skip ("attn","bias") by segment match, transpose the 4 Conv1D
-        # suffixes, copy_ into model.state_dict()[key] under torch.no_grad()
+                model = cls(config)
+
+        # import HERE, not module top — keep HF a dev dep
+        from transformers import GPT2LMHeadModel
+
+        hf = GPT2LMHeadModel.from_pretrained(model_type)  # pyright: ignore[reportUnknownMemberType]
+        # walk hf.state_dict(): skip ("attn","bias") by segment match, transpose the
+        # 4 Conv1D suffixes, copy_ into model.state_dict()[key] under torch.no_grad()
         hf_dict = hf.state_dict()
         model_dict = model.state_dict()
-        transposed_keys = ["attn.c_attn.weight", "attn.c_proj.weight", "mlp.c_fc.weight", "mlp.c_proj.weight"]
+        transposed_keys = [
+            "attn.c_attn.weight",
+            "attn.c_proj.weight",
+            "mlp.c_fc.weight",
+            "mlp.c_proj.weight",
+        ]
         for key in hf_dict:
             if any (key.endswith(k) for k in transposed_keys):
                 model_dict[key].copy_(hf_dict[key].transpose(0, 1))
