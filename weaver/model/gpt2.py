@@ -153,7 +153,7 @@ class GPT2(nn.Module):
             "gpt2-xl": GPT2Config(n_layer=48, n_head=25, n_embd=1600),
         }
         config = configs[model_type]
-                model = cls(config)
+        model = cls(config)
 
         # import HERE, not module top — keep HF a dev dep
         from transformers import GPT2LMHeadModel
