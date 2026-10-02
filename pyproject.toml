@@ -15,10 +15,10 @@ asyncio_mode = "auto"     # async test functions run without a per-test decorato
 [tool.pyright]
 typeCheckingMode = "strict"
 reportMissingTypeStubs = false
-exclude = ["reading", ".venv"]
+exclude = ["reading", "notes", ".venv"]   # notes/ = gitignored scratch, not project code
 
 [tool.ruff]
-extend-exclude = ["reading"]
+extend-exclude = ["reading", "notes"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RET", "C4"]

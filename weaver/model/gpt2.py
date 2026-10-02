@@ -72,7 +72,8 @@ class Attention(nn.Module):
         # whichever device the attention is running in
         self.bias: torch.Tensor
         mask = torch.tril(torch.ones(config.block_size, config.block_size))
-        self.register_buffer("bias", mask.view(1, 1, config.block_size, config.block_size))
+        bias_val = mask.view(1, 1, config.block_size, config.block_size)
+        self.register_buffer("bias", bias_val)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.size()
@@ -95,5 +96,48 @@ class Attention(nn.Module):
         y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         # re-assemble all head outputs side by side
         y = y.transpose(1, 2).contiguous().view(B, T, C)
-        y = self.resid_dropout(self.c_proj(y))
-        return y
+        return self.resid_dropout(self.c_proj(y))
+
+
+class Block(nn.Module):
+  def __init__(self, config : GPT2Config) -> None:
+    super().__init__()
+    self.ln_1 = LayerNorm(config.n_embd)
+    self.attn = Attention(config)
+    self.ln_2 = LayerNorm(config.n_embd)
+    self.mlp = MLP(config)
+  def forward(self, x : torch.Tensor) -> torch.Tensor:
+    x = x + self.attn(self.ln_1(x))
+    return x + self.mlp(self.ln_2(x))
+class Transformer(nn.Module):
+    def __init__(self, config:GPT2Config)->None:
+        super().__init__()
+        self.wte = nn.Embedding(config.vocab_size, config.n_embd)
+        self.wpe = nn.Embedding(config.block_size, config.n_embd)
+        self.drop = nn.Dropout(config.dropout)
+        self.h = nn.ModuleList([Block(config) for _ in range(config.n_layer)])
+        self.ln_f = LayerNorm(config.n_embd)
+        
+class GPT2(nn.Module):
+    def __init__(self, config : GPT2Config) -> None:
+        super().__init__()
+        self.transformer = Transformer(config)
+        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self.config = config
+        self.lm_head.weight = self.transformer.wte.weight
+    def forward(self, idx : torch.Tensor) -> torch.Tensor:
+        device = idx.device
+        _, t = idx.size()
+        msg = (
+            f"Cannot forward sequence of length {t}, "
+            f"block size is only {self.config.block_size}"
+        )
+        assert t <= self.config.block_size, msg
+        pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
+        tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
+        pos_emb = self.transformer.wpe(pos) # position embeddings of shape (t, n_embd)
+        x = self.transformer.drop(tok_emb + pos_emb)
+        for block in self.transformer.h:
+            x = block(x)
+        x = self.transformer.ln_f(x)
+        return self.lm_head(x)
