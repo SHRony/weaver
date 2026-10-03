@@ -84,6 +84,9 @@ class AsyncEngine:
             while not self._inbound.empty():
                 self._pending_requests.append(self._inbound.get_nowait())
 
+            
+            to_remove: list[Inflight] = []
+
             while len(self._pending_requests) > 0:
                 inflight = self._pending_requests[0]
                 if inflight.cancelled:
@@ -109,14 +112,34 @@ class AsyncEngine:
                     self._response_generators[inflight.request.request_id] = (
                         self._engine.generate(inflight.request)
                     )
-                    output = next(
-                        self._response_generators[inflight.request.request_id]
-                    )
-                    inflight.output_queue.put_nowait(output)
+                    try:
+                        output = next(
+                            self._response_generators[inflight.request.request_id]
+                        )
+                        inflight.output_queue.put_nowait(output)
+                    except StopIteration:
+                        # normal end — the final Output(finished=True)
+                        #  was already queued
+                        to_remove.append(inflight)
+                    except Exception:
+                        # model/sampler crashed mid-request:
+                        #  the client must be told, 
+                        # or it waits forever
+                        inflight.output_queue.put_nowait(Output(
+                            request_id=inflight.request.request_id,
+                            new_token_id=-1,
+                            text="",
+                            finished=True,
+                            finish_reason="abort",
+                        ))
+                        to_remove.append(inflight)
                 else:
                     break
-
-            to_remove: list[Inflight] = []
+            for inflight in to_remove:
+                self._running_requests.remove(inflight)
+                self._response_queues.pop(inflight.request.request_id)
+                self._response_generators.pop(inflight.request.request_id)
+            to_remove.clear()
             for inflight in self._running_requests:
                 try:
                     if inflight.cancelled:

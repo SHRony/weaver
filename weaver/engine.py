@@ -128,6 +128,7 @@ class Engine:
             yield next(generator)
           except StopIteration:
             to_remove.append(generator)
+          
         for generator in to_remove:
           generators.remove(generator)
     def has_enough_blocks(self, request: Request) -> bool:

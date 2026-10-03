@@ -1,7 +1,9 @@
 import asyncio
 
+import torch
+
 from weaver.async_engine import AsyncEngine
-from weaver.model.model import FakeModel
+from weaver.model.model import FakeModel, Model
 from weaver.sampler import CharTokenizer, GreedySampler, TopKSampler
 from weaver.types import Output, Request, SamplingParams
 
@@ -88,3 +90,53 @@ async def test_runs_with_both_samplers() -> None:
         finally:
             await e.aclose()
         assert len(outs) == 6 and all(isinstance(o, Output) for o in outs)
+
+
+class CrashingModel(Model):
+    """Delegates to FakeModel, but raises on any prompt containing '!'.
+
+    Lets one request crash while another on the same engine stays healthy —
+    which is the property under test: a bad request must not take the loop down.
+    """
+
+    def __init__(self) -> None:
+        self._inner = FakeModel(42)
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        if bool((idx == ord("!")).any()):
+            raise RuntimeError("model exploded")
+        return self._inner.forward(idx)
+
+
+async def test_model_crash_aborts_request_but_engine_survives() -> None:
+    e = AsyncEngine(CharTokenizer(), GreedySampler(), 8, model=CrashingModel())
+    await e.start()
+    try:
+
+        async def collect(rid: str, prompt: str) -> list[Output]:
+            return [o async for o in e.generate(make_request(rid, 4, prompt))]
+
+        # wait_for turns "client hangs forever" into a test failure, not a stuck suite
+        bad, good = await asyncio.wait_for(
+            asyncio.gather(collect("bad", "boom!"), collect("good", "hello")),
+            timeout=2.0,
+        )
+
+        # the crashed request got exactly one terminal Output, marked abort
+        assert len(bad) == 1
+        assert bad[0].finished and bad[0].finish_reason == "abort"
+        assert bad[0].request_id == "bad"
+
+        # the healthy request on the same engine was unaffected
+        assert len(good) == 4 and good[-1].finish_reason == "length"
+
+        # the loop is still alive: a request submitted AFTER the crash completes
+        after = await asyncio.wait_for(collect("after", "hello"), timeout=2.0)
+        assert len(after) == 4
+
+        # all blocks came back: the crashed request's `with allocate` unwound on the
+        # exception; the finished ones release on the loop's next tick, so let it run
+        await asyncio.sleep(0.02)
+        assert e.free_blocks() == 8
+    finally:
+        await e.aclose()
