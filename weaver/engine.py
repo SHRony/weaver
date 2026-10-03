@@ -28,7 +28,7 @@ from math import ceil
 
 import torch
 
-from weaver.instrument import BlockPool, allocate, timed
+from weaver.instrument import BlockPool, allocate
 from weaver.model.model import Model
 from weaver.sampler import Sampler, Tokenizer
 from weaver.sequence import TokenSequence
@@ -76,7 +76,6 @@ class Engine:
         self._device = device
     def get_pool_size(self):
       return self._block_pool.get_size()
-    @timed
     def generate(self, request: Request) -> Generator[Output, None, None]:
       with allocate(self._block_pool, self._blocks_needed(request)) as _:
         sequence: TokenSequence = TokenSequence(self.tokenizer.encode(request.prompt))
