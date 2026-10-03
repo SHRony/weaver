@@ -90,22 +90,27 @@ class Engine:
           with torch.inference_mode():
             logits = self._model.forward(ids)
           token_id = self.sampler.sample(logits[0, -1], sampling_param)
-          sequence.append(token_id)
-          
-          piece = decoder.decode(token_id)
-          generated_text += piece
-          if sampling_param.stop and generated_text.endswith(sampling_param.stop):
+          if token_id == self.tokenizer.eos_id:
             finished = True
             finish_reason = "stop"
-          elif (len(sequence) - prompt_len) >= sampling_param.max_tokens:
-            finished = True
-            finish_reason = "length"
+            piece = decoder.flush()
           else:
-            finish_reason = None
-          if finished:
-            final_piece = decoder.flush()
-            piece += final_piece
-            generated_text += final_piece
+            sequence.append(token_id)
+            piece = decoder.decode(token_id)
+            generated_text += piece
+            if sampling_param.stop and generated_text.endswith(sampling_param.stop):
+              finished = True
+              finish_reason = "stop"
+            elif (len(sequence) - prompt_len) >= sampling_param.max_tokens:
+              finished = True
+              finish_reason = "length"
+            else:
+              finish_reason = None
+            if finished:
+              final_piece = decoder.flush()
+              piece += final_piece
+              generated_text += final_piece
+          
           yield Output(request_id=request.request_id,
             new_token_id=token_id, text=piece,
             finished=finished, finish_reason=finish_reason)

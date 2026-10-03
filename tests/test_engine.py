@@ -1,8 +1,9 @@
 """Day 5 — engine tests: laziness, stops, disconnect, batching, admission."""
 import pytest
+import torch
 
 from weaver.engine import Engine
-from weaver.model.model import FakeModel
+from weaver.model.model import FakeModel, Model
 from weaver.sampler import CharTokenizer, GreedySampler, TopKSampler
 from weaver.types import Output, Request, SamplingParams
 
@@ -72,3 +73,54 @@ def test_any_sampler_fits_the_seam() -> None:
         e = engine.generate(make_request())
         outs = list(e)
         assert len(outs) == 8 and all(isinstance(o, Output) for o in outs)
+
+
+class EosAfterModel(Model):
+    """Behaves like FakeModel for `after` forwards, then emits `eos_id`.
+
+    FakeModel only ever peaks on letters, so nothing in the suite reaches the
+    engine's EOS branch without a model that is told to emit it.
+    """
+
+    def __init__(self, eos_id: int, after: int) -> None:
+        self._inner = FakeModel(42)
+        self._eos_id = eos_id
+        self._after = after
+        self._calls = 0
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        self._calls += 1
+        if self._calls <= self._after:
+            return self._inner.forward(idx)
+        logits = torch.zeros(1, 1, 128)
+        logits[0, 0, self._eos_id] = 1.0
+        return logits
+
+
+def eos_engine(after: int) -> tuple[Engine, int]:
+    tok = CharTokenizer()
+    model = EosAfterModel(tok.eos_id, after)
+    return Engine(tok, GreedySampler(), pool_size=8, model=model), tok.eos_id
+
+
+def test_eos_stops_generation_and_is_not_rendered() -> None:
+    engine, eos_id = eos_engine(after=2)
+    outs = list(engine.generate(make_request(max_tokens=8)))
+
+    assert len(outs) == 3  # two real tokens, then the EOS step
+    assert all(not o.finished for o in outs[:-1])
+    assert outs[-1].finished and outs[-1].finish_reason == "stop"
+
+    # the token is reported, but its text never reaches the stream
+    assert outs[-1].new_token_id == eos_id
+    assert outs[-1].text == ""
+    text = "".join(o.text for o in outs)
+    assert len(text) == 2 and text.isalpha()
+
+
+def test_eos_on_last_allowed_token_is_stop_not_length() -> None:
+    engine, _ = eos_engine(after=2)
+    outs = list(engine.generate(make_request(max_tokens=3)))
+
+    assert len(outs) == 3
+    assert outs[-1].finish_reason == "stop"

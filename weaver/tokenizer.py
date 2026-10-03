@@ -18,6 +18,7 @@ class GPT2Tokenizer(Tokenizer):
         return self._encoder.decode(token_ids)
     def bytes_of(self, token_id: int) -> bytes:
         return self._encoder.decode_single_token_bytes(token_id)
+    
     @property
     def eos_id(self) -> int:
         return self._encoder.eot_token
