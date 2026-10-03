@@ -89,7 +89,7 @@ class Engine:
           ids = torch.tensor([list(sequence)], device=self._device)
           with torch.inference_mode():
             logits = self._model.forward(ids)
-          token_id = self.sampler.sample(logits[0, -1])
+          token_id = self.sampler.sample(logits[0, -1], sampling_param)
           sequence.append(token_id)
           
           piece = decoder.decode(token_id)

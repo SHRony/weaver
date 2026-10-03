@@ -82,7 +82,7 @@ async def test_cancel_midstream_releases_blocks() -> None:
 
 
 async def test_runs_with_both_samplers() -> None:
-    for sampler in (GreedySampler(), TopKSampler(k=3, seed=1)):
+    for sampler in (GreedySampler(), TopKSampler(seed=1)):
         e = AsyncEngine(CharTokenizer(), sampler, 16, model=FakeModel(42))
         await e.start()
         try:

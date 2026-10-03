@@ -23,56 +23,38 @@ Docs: typing.Protocol, abc.ABC
 
 from __future__ import annotations
 
-import random
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from typing import Protocol, runtime_checkable
 
 import torch
 
+from weaver.types import SamplingParams
+
 
 @runtime_checkable
 class Sampler(Protocol):
-    def sample(self, logits: torch.Tensor, /) -> int: ...
-
-
-class GreedySamplerBase:
-    def sample(self, logits: torch.Tensor, /) -> int:
-        ret = 0
-        for i, logit in enumerate(logits):
-            if logit > logits[ret]:
-                ret = i
-        return ret
-
-
-class TopKSamplerBase:
-    def __init__(self, k: int, seed: int = 0) -> None:
-        if k < 1:
-            raise ValueError(f"k must be >= 1, got {k}")
-        self._k = k
-        self._random = random.Random(seed)
-
-    def sample(self, logits: torch.Tensor, /) -> int:
-        logits_copy = [(logit, i) for i, logit in enumerate (logits)]
-        logits_copy.sort(reverse=True)
-        top_k_indices = [i for _, i in logits_copy[: self._k]]
-        return self._random.choice(top_k_indices)
+    def sample(self, logits: torch.Tensor, params: SamplingParams,/) -> int: ...
 
 
 class GreedySampler:
-    def sample(self, logits: torch.Tensor, /) -> int:
+    def sample(self, logits: torch.Tensor, params : SamplingParams, /) -> int:
         return int(logits.argmax())
 
 
 class TopKSampler:
-    def __init__(self, k: int, seed: int = 0) -> None:
-        if k < 1:
-            raise ValueError(f"k must be >= 1, got {k}")
-        self._k = k
-        self._random = random.Random(seed)
+    def __init__(self, seed: int = 0) -> None:
+        self._random = torch.Generator().manual_seed(seed)
 
-    def sample(self, logits: torch.Tensor, /) -> int:
-        return int(self._random.choice(torch.topk(logits, self._k).indices))
+    def sample(self, logits: torch.Tensor, params: SamplingParams, /) -> int:
+        if params.temperature == 0:                        
+            return int(logits.argmax())
+        scaled = logits / params.temperature             
+        k = params.top_k if params.top_k > 0 else scaled.numel()
+        values, indices = torch.topk(scaled, k) 
+        probs = torch.softmax(values, dim=-1)             
+        pos = torch.multinomial(probs, 1, generator=self._random)   
+        return int(indices[pos])                           
 
 class Tokenizer(ABC):
     @abstractmethod

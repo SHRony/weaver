@@ -67,7 +67,7 @@ def test_impossible_request_rejected() -> None:
         list(e.generate_batch([make_request("r1", max_tokens=500)]))
 
 def test_any_sampler_fits_the_seam() -> None:
-    for sampler in (GreedySampler(), TopKSampler(k=3, seed=1)):
+    for sampler in (GreedySampler(), TopKSampler(seed=1)):
         engine = Engine(CharTokenizer(), sampler, pool_size=8, model=FakeModel(42))
         e = engine.generate(make_request())
         outs = list(e)
