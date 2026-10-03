@@ -1,0 +1,5 @@
+prompt_tokens,tokens_produced,runs,tok_per_s_median,tok_per_s_min,tok_per_s_max,ms_per_token,ms_first_token,ms_last_token,device,threads,torch
+32,32,3,41.27,40.47,41.71,24.2,18.5,26.2,cpu,4,2.14.0
+128,32,3,21.91,21.42,22.29,45.6,39.3,47.0,cpu,4,2.14.0
+512,32,3,6.44,6.24,6.54,155.4,145.5,161.5,cpu,4,2.14.0
+896,32,3,3.38,3.23,3.39,296.2,288.6,311.4,cpu,4,2.14.0
