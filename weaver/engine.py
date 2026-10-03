@@ -32,6 +32,7 @@ from weaver.instrument import BlockPool, allocate, timed
 from weaver.model.model import Model
 from weaver.sampler import Sampler, Tokenizer
 from weaver.sequence import TokenSequence
+from weaver.tokenizer import IncrementalDecoder
 from weaver.types import Output, Request, SamplingParams
 
 
@@ -63,7 +64,8 @@ class Engine:
       tokenizer: Tokenizer,
       sampler: Sampler,
       pool_size:int,
-      model: Model
+      model: Model,
+      device: str = "cpu",
       ) -> None:
         self.tokenizer = tokenizer
         self.sampler = sampler
@@ -71,6 +73,7 @@ class Engine:
         self._block_pool = BlockPool(pool_size)
         self._block_size = 16
         self._pool_size = pool_size
+        self._device = device
     def get_pool_size(self):
       return self._block_pool.get_size()
     @timed
@@ -80,11 +83,17 @@ class Engine:
         sampling_param:SamplingParams = request.params
         finished = False
         prompt_len = len(sequence)
+        decoder = IncrementalDecoder(self.tokenizer)
+        generated_text = ""
         while not finished:
-          logits = self._model.forward(torch.tensor(sequence).reshape(1, -1))
+          ids = torch.tensor([list(sequence)], device=self._device)
+          with torch.inference_mode():
+            logits = self._model.forward(ids)
           token_id = self.sampler.sample(logits[0, -1])
           sequence.append(token_id)
-          generated_text = self.tokenizer.decode(list(sequence)[prompt_len:])
+          
+          piece = decoder.decode(token_id)
+          generated_text += piece
           if sampling_param.stop and generated_text.endswith(sampling_param.stop):
             finished = True
             finish_reason = "stop"
@@ -93,8 +102,12 @@ class Engine:
             finish_reason = "length"
           else:
             finish_reason = None
+          if finished:
+            final_piece = decoder.flush()
+            piece += final_piece
+            generated_text += final_piece
           yield Output(request_id=request.request_id,
-            new_token_id=token_id, text=self.tokenizer.decode([token_id]),
+            new_token_id=token_id, text=piece,
             finished=finished, finish_reason=finish_reason)
     
     def _blocks_needed(self, request: Request) -> int:

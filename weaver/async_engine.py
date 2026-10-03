@@ -34,16 +34,20 @@ class Inflight:
 
 class AsyncEngine:
     def __init__(
-        self, tokenizer: Tokenizer, sampler: Sampler, pool_size: int, model: Model
+        self, 
+        tokenizer: Tokenizer, 
+        sampler: Sampler, 
+        pool_size: int, 
+        model: Model,
+        device: str = "cpu",
     ) -> None:
-        self._engine = Engine(tokenizer, sampler, pool_size, model)
+        self._engine = Engine(tokenizer, sampler, pool_size, model, device)
         self._inbound: asyncio.Queue[Inflight] = asyncio.Queue()
         self._response_queues: dict[str, asyncio.Queue[Output]] = {}
         self._response_generators: dict[str, Generator[Output, None, None]] = {}
         self._pending_requests: list[Inflight] = []
         self._running_requests: list[Inflight] = []
         self._loop_task: asyncio.Task[None] | None = None
-
     async def start(self) -> None:  # called from inside the event loop
         if self._loop_task is None:
             self._loop_task = asyncio.create_task(self.engine_loop())

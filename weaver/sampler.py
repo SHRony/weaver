@@ -79,6 +79,8 @@ class Tokenizer(ABC):
     def encode(self, text: str) -> list[int]: ...
     @abstractmethod
     def decode(self, token_ids: Sequence[int]) -> str: ...
+    @abstractmethod
+    def bytes_of(self, token_id: int) -> bytes: ...
     def roundtrip(self, text: str) -> str:
         return self.decode(self.encode(text))
 
@@ -89,3 +91,5 @@ class CharTokenizer(Tokenizer):
 
     def decode(self, token_ids: Sequence[int]) -> str:
         return "".join(chr(token_id) for token_id in token_ids)
+    def bytes_of(self, token_id: int) -> bytes:
+        return bytes([token_id])

@@ -11,6 +11,8 @@ dependencies = [
 pythonpath = ["."]
 testpaths = ["tests"]
 asyncio_mode = "auto"     # async test functions run without a per-test decorator
+markers = ["slow: loads a real model; run with -m slow"]
+addopts = "-m 'not slow'"
 
 [tool.pyright]
 typeCheckingMode = "strict"
