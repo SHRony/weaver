@@ -74,6 +74,7 @@ class Engine:
         self._block_size = 16
         self._pool_size = pool_size
         self._device = device
+        self._model.eval()
     def get_pool_size(self):
       return self._block_pool.get_size()
     def generate(self, request: Request) -> Generator[Output, None, None]:

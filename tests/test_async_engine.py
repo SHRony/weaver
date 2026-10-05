@@ -1,4 +1,5 @@
 import asyncio
+from typing import Self
 
 import torch
 
@@ -106,7 +107,8 @@ class CrashingModel(Model):
         if bool((idx == ord("!")).any()):
             raise RuntimeError("model exploded")
         return self._inner.forward(idx)
-
+    def eval(self) -> Self:
+        return self
 
 async def test_model_crash_aborts_request_but_engine_survives() -> None:
     e = AsyncEngine(CharTokenizer(), GreedySampler(), 8, model=CrashingModel())

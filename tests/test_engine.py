@@ -1,6 +1,10 @@
 """Day 5 — engine tests: laziness, stops, disconnect, batching, admission."""
+
+from typing import Self
+
 import pytest
 import torch
+import torch.nn as nn
 
 from weaver.engine import Engine
 from weaver.model.model import FakeModel, Model
@@ -95,7 +99,8 @@ class EosAfterModel(Model):
         logits = torch.zeros(1, 1, 128)
         logits[0, 0, self._eos_id] = 1.0
         return logits
-
+    def eval(self) -> Self:
+      return self
 class RandomTokenModel(Model):
     """Emits equal probability for each tokens"""
 
@@ -104,6 +109,13 @@ class RandomTokenModel(Model):
 
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         return torch.tensor([[0 for _ in range(self._vocab_size)]]).reshape(1, 1, -1)
+    def eval(self) -> Self:
+      return self
+class NoEvalCheckModel(nn.Module, Model):
+    def __init__(self) -> None:
+        super().__init__()
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        return torch.tensor([[0 for _ in range(128)]]).reshape(1, 1, -1)
 
 def eos_engine(after: int) -> tuple[Engine, int]:
     tok = CharTokenizer()
@@ -158,3 +170,13 @@ def test_request_seed_is_working(seed:int) -> None:
     ids1 = [out.new_token_id for out in engine.generate(request)]
     ids2 = [out.new_token_id for out in engine.generate(request)]
     assert ids1 == ids2
+def test_no_eval_check_model_works() -> None:
+    model = NoEvalCheckModel()
+    assert model.training
+    Engine(
+        CharTokenizer(),
+        GreedySampler(),
+        pool_size=4,
+        model=model
+    )
+    assert not model.training
