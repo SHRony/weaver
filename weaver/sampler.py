@@ -34,11 +34,21 @@ from weaver.types import SamplingParams
 
 @runtime_checkable
 class Sampler(Protocol):
-    def sample(self, logits: torch.Tensor, params: SamplingParams,/) -> int: ...
+    def sample(
+    self,
+    logits: torch.Tensor,
+    params: SamplingParams, 
+    generator: torch.Generator | None = None, 
+    /) -> int: ...
 
 
 class GreedySampler:
-    def sample(self, logits: torch.Tensor, params : SamplingParams, /) -> int:
+    def sample(
+        self, 
+        logits: torch.Tensor, 
+        params : SamplingParams, 
+        generator: torch.Generator | None = None, 
+        /) -> int:
         return int(logits.argmax())
 
 
@@ -46,14 +56,20 @@ class TopKSampler:
     def __init__(self, seed: int = 0) -> None:
         self._random = torch.Generator().manual_seed(seed)
 
-    def sample(self, logits: torch.Tensor, params: SamplingParams, /) -> int:
+    def sample(
+        self, 
+        logits: torch.Tensor, 
+        params: SamplingParams, 
+        generator: torch.Generator | None = None,
+         /) -> int:
         if params.temperature == 0:                        
             return int(logits.argmax())
         scaled = logits / params.temperature             
         k = params.top_k if params.top_k > 0 else scaled.numel()
         values, indices = torch.topk(scaled, k) 
-        probs = torch.softmax(values, dim=-1)             
-        pos = torch.multinomial(probs, 1, generator=self._random)   
+        probs = torch.softmax(values, dim=-1)       
+        random = generator if generator else self._random
+        pos = torch.multinomial(probs, 1, generator=random)   
         return int(indices[pos])                           
 
 class Tokenizer(ABC):

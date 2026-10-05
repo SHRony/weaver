@@ -96,6 +96,14 @@ class EosAfterModel(Model):
         logits[0, 0, self._eos_id] = 1.0
         return logits
 
+class RandomTokenModel(Model):
+    """Emits equal probability for each tokens"""
+
+    def __init__(self, vocab_size: int) -> None:
+        self._vocab_size = vocab_size
+
+    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+        return torch.tensor([[0 for _ in range(self._vocab_size)]]).reshape(1, 1, -1)
 
 def eos_engine(after: int) -> tuple[Engine, int]:
     tok = CharTokenizer()
@@ -124,3 +132,29 @@ def test_eos_on_last_allowed_token_is_stop_not_length() -> None:
 
     assert len(outs) == 3
     assert outs[-1].finish_reason == "stop"
+def test_same_random_is_not_picked_for_each_token() -> None:
+    engine = Engine(
+        CharTokenizer(), 
+        TopKSampler(42), 
+        pool_size=8, 
+        model=RandomTokenModel(10))
+    request = Request("r1", "hello world", SamplingParams(max_tokens=8, seed=42), 0.0)
+    outs = list[Output](engine.generate(request))
+    assert len(set[int](o.new_token_id for o in outs)) >= 2
+
+    
+@pytest.mark.parametrize("seed", [42, 0])
+def test_request_seed_is_working(seed:int) -> None:
+    engine = Engine(
+        CharTokenizer(),
+        TopKSampler(42),
+        pool_size=4,
+        model=FakeModel(seed),
+    )
+    request = Request(
+        "e2e", "The capital of France is",
+        SamplingParams(max_tokens=8, seed = seed), 0.0
+    )
+    ids1 = [out.new_token_id for out in engine.generate(request)]
+    ids2 = [out.new_token_id for out in engine.generate(request)]
+    assert ids1 == ids2

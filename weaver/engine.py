@@ -84,11 +84,14 @@ class Engine:
         prompt_len = len(sequence)
         decoder = IncrementalDecoder(self.tokenizer)
         generated_text = ""
+        random = None
+        if request.params.seed is not None:
+          random = torch.Generator().manual_seed(request.params.seed)
         while not finished:
           ids = torch.tensor([list(sequence)], device=self._device)
           with torch.inference_mode():
             logits = self._model.forward(ids)
-          token_id = self.sampler.sample(logits[0, -1], sampling_param)
+          token_id = self.sampler.sample(logits[0, -1], sampling_param, random)
           if token_id == self.tokenizer.eos_id:
             finished = True
             finish_reason = "stop"

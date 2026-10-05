@@ -34,7 +34,7 @@ class SamplingParams:
     top_k: int = 0
     max_tokens: int = 16
     stop: tuple[str, ...] = ()
-
+    seed: int|None = None
     def __post_init__(self) -> None:
         if self.temperature < 0:
             raise ValueError(
