@@ -135,6 +135,10 @@ I wanted to understand inference engines, so I built the plumbing from scratch
 before reading vLLM and SGLang, then compared. It started as a learning exercise;
 it's becoming a real (small) engine.
 
+I wrote up the first part of that story, the toy engine and what reading
+nanoGPT, vLLM and SGLang changed, here:
+[Curious mind wants to know: Inference (Part 1)](https://medium.com/@shrony101/curious-mind-wants-to-know-inference-part-1-6ac8e891fd9b).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
