@@ -120,7 +120,7 @@ class Transformer(nn.Module):
         self.h = nn.ModuleList([Block(config) for _ in range(config.n_layer)])
         self.ln_f = LayerNorm(config.n_embd)
         
-class GPT2(nn.Module, Model):
+class GPT2(Model):
     def __init__(self, config : GPT2Config) -> None:
         super().__init__()
         self.transformer = Transformer(config)
@@ -177,3 +177,5 @@ class GPT2(nn.Module, Model):
             else:
                 model_dict[key].copy_(hf_dict[key])
         return model.eval()
+
+    

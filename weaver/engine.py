@@ -75,6 +75,7 @@ class Engine:
         self._pool_size = pool_size
         self._device = device
         self._model.eval()
+        self._model.to(device)
     def get_pool_size(self):
       return self._block_pool.get_size()
     def generate(self, request: Request) -> Generator[Output, None, None]:
@@ -87,7 +88,7 @@ class Engine:
         generated_text = ""
         random = None
         if request.params.seed is not None:
-          random = torch.Generator().manual_seed(request.params.seed)
+          random = torch.Generator(self._device).manual_seed(request.params.seed)
         while not finished:
           ids = torch.tensor([list(sequence)], device=self._device)
           with torch.inference_mode():

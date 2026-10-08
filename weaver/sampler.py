@@ -54,7 +54,8 @@ class GreedySampler:
 
 class TopKSampler:
     def __init__(self, seed: int = 0) -> None:
-        self._random = torch.Generator().manual_seed(seed)
+        self._seed = seed
+        self._generator : torch.Generator | None = None
 
     def sample(
         self, 
@@ -68,7 +69,13 @@ class TopKSampler:
         k = params.top_k if params.top_k > 0 else scaled.numel()
         values, indices = torch.topk(scaled, k) 
         probs = torch.softmax(values, dim=-1)       
-        random = generator if generator else self._random
+        random = generator
+        if not random:
+            if not self._generator:
+                self._generator = torch.Generator(
+                    device=logits.device
+                    ).manual_seed(self._seed)
+            random = self._generator
         pos = torch.multinomial(probs, 1, generator=random)   
         return int(indices[pos])                           
 

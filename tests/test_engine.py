@@ -1,10 +1,8 @@
 """Day 5 — engine tests: laziness, stops, disconnect, batching, admission."""
 
-from typing import Self
 
 import pytest
 import torch
-import torch.nn as nn
 
 from weaver.engine import Engine
 from weaver.model.model import FakeModel, Model
@@ -87,6 +85,7 @@ class EosAfterModel(Model):
     """
 
     def __init__(self, eos_id: int, after: int) -> None:
+        super().__init__()
         self._inner = FakeModel(42)
         self._eos_id = eos_id
         self._after = after
@@ -99,24 +98,20 @@ class EosAfterModel(Model):
         logits = torch.zeros(1, 1, 128)
         logits[0, 0, self._eos_id] = 1.0
         return logits
-    def eval(self) -> Self:
-      return self
 class RandomTokenModel(Model):
     """Emits equal probability for each tokens"""
 
     def __init__(self, vocab_size: int) -> None:
+        super().__init__()
         self._vocab_size = vocab_size
 
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         return torch.tensor([[0 for _ in range(self._vocab_size)]]).reshape(1, 1, -1)
-    def eval(self) -> Self:
-      return self
-class NoEvalCheckModel(nn.Module, Model):
+class NoEvalCheckModel(Model):
     def __init__(self) -> None:
         super().__init__()
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         return torch.tensor([[0 for _ in range(128)]]).reshape(1, 1, -1)
-
 def eos_engine(after: int) -> tuple[Engine, int]:
     tok = CharTokenizer()
     model = EosAfterModel(tok.eos_id, after)
@@ -180,3 +175,41 @@ def test_no_eval_check_model_works() -> None:
         model=model
     )
     assert not model.training
+
+
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs mps")
+def test_engine_in_different_device_works() -> None:
+    engine = Engine(
+        CharTokenizer(),
+        TopKSampler(42),
+        pool_size=4,
+        model=FakeModel(42),
+        device="mps"
+    )
+    request = Request("r1", "hello world", SamplingParams(max_tokens=8), 0.0)
+    outs = list[Output](engine.generate(request))
+    assert len(outs) == 8 and all(isinstance(o, Output) for o in outs)
+
+
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs mps")
+def test_fake_model_device_consistency() -> None:
+    model = FakeModel(42)
+    model.to("mps")
+    idx = torch.tensor([[42]], device="mps")
+    logits = model.forward(idx)
+    assert logits.device == idx.device
+
+
+@pytest.mark.skipif(not torch.backends.mps.is_available(), reason="needs mps")
+def test_seeded_request_works_on_mps() -> None:
+    engine = Engine(
+        CharTokenizer(),
+        TopKSampler(42),
+        pool_size=4,
+        model=FakeModel(42),
+        device="mps"
+    )
+    request = Request("r1", "hello world", SamplingParams(max_tokens=8, seed=42), 0.0)
+    ids1 = [out.new_token_id for out in engine.generate(request)]
+    ids2 = [out.new_token_id for out in engine.generate(request)]
+    assert len(ids1) == 8 and ids1 == ids2

@@ -1,5 +1,4 @@
 import asyncio
-from typing import Self
 
 import torch
 
@@ -101,14 +100,13 @@ class CrashingModel(Model):
     """
 
     def __init__(self) -> None:
+        super().__init__()
         self._inner = FakeModel(42)
 
     def forward(self, idx: torch.Tensor) -> torch.Tensor:
         if bool((idx == ord("!")).any()):
             raise RuntimeError("model exploded")
         return self._inner.forward(idx)
-    def eval(self) -> Self:
-        return self
 
 async def test_model_crash_aborts_request_but_engine_survives() -> None:
     e = AsyncEngine(CharTokenizer(), GreedySampler(), 8, model=CrashingModel())
