@@ -55,7 +55,7 @@ class Request:
 @dataclass(slots=True)
 class Output:
     request_id: str
-    new_token_id: int
+    new_token_id: int | None
     text: str
     finished: bool
     finish_reason: FinishReason | None = None

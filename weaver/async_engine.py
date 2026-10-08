@@ -107,7 +107,7 @@ class AsyncEngine:
                     # or it waits forever
                     inflight.output_queue.put_nowait(Output(
                         request_id=inflight.request.request_id,
-                        new_token_id=-1,
+                        new_token_id=None,
                         text="",
                         finished=True,
                         finish_reason="abort",
@@ -124,9 +124,10 @@ class AsyncEngine:
                     inflight.output_queue.put_nowait(
                         Output(
                             request_id=inflight.request.request_id,
-                            new_token_id=0,
+                            new_token_id=None,
                             text="",
                             finished=True,
+                            finish_reason="pool_size",
                         )
                     )
                     self._pending_requests.remove(inflight)

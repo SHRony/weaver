@@ -147,7 +147,8 @@ def test_same_random_is_not_picked_for_each_token() -> None:
         model=RandomTokenModel(10))
     request = Request("r1", "hello world", SamplingParams(max_tokens=8, seed=42), 0.0)
     outs = list[Output](engine.generate(request))
-    assert len(set[int](o.new_token_id for o in outs)) >= 2
+    st = {o.new_token_id for o in outs if o.new_token_id is not None}
+    assert len(st) >= 2
 
     
 @pytest.mark.parametrize("seed", [42, 0])

@@ -125,6 +125,7 @@ async def test_model_crash_aborts_request_but_engine_survives() -> None:
         # the crashed request got exactly one terminal Output, marked abort
         assert len(bad) == 1
         assert bad[0].finished and bad[0].finish_reason == "abort"
+        assert bad[0].new_token_id is None
         assert bad[0].request_id == "bad"
 
         # the healthy request on the same engine was unaffected
@@ -140,3 +141,21 @@ async def test_model_crash_aborts_request_but_engine_survives() -> None:
         assert e.free_blocks() == 8
     finally:
         await e.aclose()
+
+async def test_unhandalable_requests_abort_and_output_token_is_empty() -> None:
+    engine = AsyncEngine(CharTokenizer(), GreedySampler(), 1, model=FakeModel(42))
+    await engine.start()
+    gen = engine.generate(
+        make_request(
+            max_tokens=4, prompt="this is a big prompt, too big to handle"
+            )
+        )
+    try:
+        outs = [o async for o in gen]
+    finally:
+        await engine.aclose()
+    assert len(outs) == 1
+    assert outs[0].finished and outs[0].finish_reason == "pool_size"
+    assert outs[0].new_token_id is None
+    assert outs[0].request_id == "r1"
+    assert outs[0].text == ""
