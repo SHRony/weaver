@@ -31,3 +31,25 @@ def test_engine_with_real_gpt2_matches_hf_greedy() -> None:
     assert ids == [262, 3139, 286, 262, 4141, 2066, 11, 290]
 
 
+@pytest.mark.slow
+def test_engine_with_real_gpt2_successfully_stops_at_stop_string() -> None:
+    engine = Engine(
+        GPT2Tokenizer(),
+        GreedySampler(),
+        pool_size=4,
+        model=GPT2.from_pretrained("gpt2"),
+    )
+    request = Request(
+        "e2e", "The capital of France is", SamplingParams(max_tokens=8, stop=("Fren",)),
+         0.0,
+    )
+
+    outputs = list(engine.generate(request))
+    res : str = ""
+    for out in outputs:
+        res += out.text
+    assert res.endswith("Fren")
+    assert(outputs[-1].finish_reason == "stop")
+    # " the capital of the French Republic, and"
+
+

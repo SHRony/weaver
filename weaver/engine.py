@@ -102,7 +102,14 @@ class Engine:
             sequence.append(token_id)
             piece = decoder.decode(token_id)
             generated_text += piece
-            if sampling_param.stop and generated_text.endswith(sampling_param.stop):
+            
+            if sampling_param.stop and any(
+              stop in generated_text[-(len(stop + piece)):] 
+              for stop in sampling_param.stop
+              ):
+              while not generated_text.endswith(sampling_param.stop):
+                generated_text = generated_text[:-1]
+                piece = piece[:-1]
               finished = True
               finish_reason = "stop"
             elif (len(sequence) - prompt_len) >= sampling_param.max_tokens:
