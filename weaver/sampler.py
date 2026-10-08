@@ -67,6 +67,7 @@ class TopKSampler:
             return int(logits.argmax())
         scaled = logits / params.temperature             
         k = params.top_k if params.top_k > 0 else scaled.numel()
+        k = min(k, len(logits))
         values, indices = torch.topk(scaled, k) 
         probs = torch.softmax(values, dim=-1)       
         random = generator

@@ -71,6 +71,11 @@ def test_topk_rejects_bad_k() -> None:
     with pytest.raises(ValueError):
         SamplingParams(top_k=-1)
 
+def test_topk_adapts_to_k_larger_than_vocab() -> None:
+    logits = torch.tensor([0.1, 0.9, 0.3, 0.7])
+    params = SamplingParams(temperature=1.0, top_k=10)
+    s = TopKSampler(seed=0)
+    assert s.sample(logits, params) in range(len(logits))
 
 def test_tokenizer_round_trip() -> None:
     assert CharTokenizer().roundtrip("hello") == "hello"
