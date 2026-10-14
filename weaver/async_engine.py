@@ -58,10 +58,28 @@ class AsyncEngine:
             with contextlib.suppress(asyncio.CancelledError):
                 await self._loop_task
             self._loop_task = None
+            for req in [*self._running_requests, *self._pending_requests]:
+                req.output_queue.put_nowait(Output(
+                    request_id=req.request.request_id,
+                    new_token_id=None,
+                    text="",
+                    finished=True,
+                    finish_reason="abort",
+                ))
+            self._pending_requests.clear()
+            self._running_requests.clear()
+            for generator in self._response_generators.values():
+                generator.close()
+            self._response_generators.clear()
+
+            
 
     def free_blocks(self) -> int:
         return self._engine.get_pool_size()
-
+    
+    @property
+    def tokenizer(self) -> Tokenizer:
+        return self._engine.tokenizer
     async def generate(self, request: Request) -> AsyncGenerator[Output, None]:
         inflight = Inflight(
             request,

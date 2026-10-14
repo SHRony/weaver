@@ -159,3 +159,38 @@ async def test_unhandalable_requests_abort_and_output_token_is_empty() -> None:
     assert outs[0].new_token_id is None
     assert outs[0].request_id == "r1"
     assert outs[0].text == ""
+
+
+async def test_block_count_after_finished_request() -> None:
+    engine = AsyncEngine(
+        CharTokenizer(),
+        GreedySampler(),
+        pool_size=8,
+        model= FakeModel(42),
+    )
+    request = Request(
+        "e2e", "Thank you for reading.", SamplingParams(max_tokens=8),
+         0.0,
+    )
+    await engine.start()
+    try:
+        _ = [out async for out in engine.generate(request)]
+    finally:
+        await engine.aclose()
+    assert engine.free_blocks() == 8
+
+async def test_aclose_aborts_midstream_client() -> None:
+    e = make_engine(pool_size=4)
+    await e.start()
+    gen = e.generate(make_request(max_tokens=50))
+    await anext(gen)
+    await anext(gen)
+    await e.aclose()
+
+    async def collect() -> list[Output]:
+        return [o async for o in gen]
+
+    rest = await asyncio.wait_for(collect(), timeout=1)
+    assert len(rest) == 1
+    assert rest[0].finished and rest[0].finish_reason == "abort"
+    assert e.free_blocks() == 4

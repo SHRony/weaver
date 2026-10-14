@@ -6,6 +6,7 @@ Expected ids are HF's own greedy output for this prompt
 
 import pytest
 
+from weaver.async_engine import AsyncEngine
 from weaver.engine import Engine
 from weaver.model.gpt2 import GPT2
 from weaver.sampler import GreedySampler
@@ -52,4 +53,43 @@ def test_engine_with_real_gpt2_successfully_stops_at_stop_string() -> None:
     assert(outputs[-1].finish_reason == "stop")
     # " the capital of the French Republic, and"
 
+@pytest.mark.slow
+def test_engine_with_real_gpt2_successfully_stops_with_stop_token() -> None:
+    engine = Engine(
+        GPT2Tokenizer(),
+        GreedySampler(),
+        pool_size=256,
+        model=GPT2.from_pretrained("gpt2"),
+    )
+    request = Request(
+        "e2e", "Thank you for reading.", SamplingParams(max_tokens=8),
+         0.0,
+    )
+
+    outputs = list(engine.generate(request))
+    assert len(outputs) == 4
+    assert outputs[-1].finish_reason == "stop"
+    assert outputs[-1].new_token_id == engine.tokenizer.eos_id
+    assert outputs[-1].text == ""
+    assert "".join(o.text for o in outputs) == "\n\nAdvertisements"
+
+@pytest.mark.slow
+async def test_async_engine_with_real_gpt2_matches_hf_greedy() -> None:
+    engine = AsyncEngine(
+        GPT2Tokenizer(),
+        GreedySampler(),
+        pool_size=4,
+        model=GPT2.from_pretrained("gpt2"),
+    )
+    request = Request(
+        "e2e", "Thank you for reading.", SamplingParams(max_tokens=8),
+         0.0,
+    )
+    await engine.start()
+    try:
+        outputs = [out async for out in engine.generate(request)]
+    finally:
+        await engine.aclose()
+    assert engine.free_blocks() == 4
+    assert len(outputs) == 4
 
