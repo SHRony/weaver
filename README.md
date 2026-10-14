@@ -49,7 +49,9 @@ through a single engine loop, advancing all of them together, one token per tick
 - **Real KV memory** — the block pool is still bookkeeping: integer handles with
   no tensors behind them.
 - **A network layer** — the engine is a Python API. There is no HTTP server.
-- **GPU** — the device is configurable, but it has only been run on CPU.
+- **GPU for real** — the engine moves the model and samples on whatever device it
+  is given, and the tests cover Apple's `mps`, but every number in this README is
+  from the CPU and nothing has been tuned for a GPU.
 
 ## Quickstart
 
@@ -64,12 +66,22 @@ uv run ruff check
 ```
 
 The fast suite fetches GPT-2's tokenizer files (about 1.5 MB) the first time it
-runs. Anything that loads the real model downloads the GPT-2 weights (about
-520 MB) from HuggingFace the first time.
+runs. Anything that loads the real model needs the weights exported once:
+
+```bash
+uv run python -m scripts.export_gpt2
+```
+
+This pulls GPT-2's checkpoint from HuggingFace (about 520 MB), converts it to
+the layout `weaver/model/gpt2.py` uses, and writes `~/.cache/weaver/gpt2.pt`.
+It is the only step that touches `transformers`, which is a dev dependency; the
+engine itself loads the file with plain `torch.load` and needs only `torch` and
+`tiktoken`.
 
 ## Try it
 
 ```bash
+uv run python -m scripts.export_gpt2     # once: writes ~/.cache/weaver/gpt2.pt
 uv run python -m examples.stream "The capital of France is"
 ```
 

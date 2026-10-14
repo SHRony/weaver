@@ -1,18 +1,20 @@
+import sys
 from pathlib import Path
-from typing import Any
 
 import torch
 
 
 def main() -> None:
-    path = Path("~/.cache/weaver/gpt2.pt").expanduser()
+    model_type = sys.argv[1] if len(sys.argv) > 1 else "gpt2"
+    assert model_type in {"gpt2", "gpt2-medium", "gpt2-large", "gpt2-xl"}
+    path = Path("~/.cache/weaver").expanduser() / f"{model_type}.pt"
 
     from transformers import GPT2LMHeadModel
-    hf = GPT2LMHeadModel.from_pretrained("gpt2")  # pyright: ignore[reportUnknownMemberType]
+    hf = GPT2LMHeadModel.from_pretrained(model_type)  # pyright: ignore[reportUnknownMemberType]
     # walk hf.state_dict(): skip ("attn","bias") by segment match, transpose the
     # 4 Conv1D suffixes, copy_ into model.state_dict()[key] under torch.no_grad()
     hf_dict = hf.state_dict()
-    model_dict : dict[str, Any] = {}
+    model_dict: dict[str, torch.Tensor] = {}
     transposed_keys = [
         "attn.c_attn.weight",
         "attn.c_proj.weight",

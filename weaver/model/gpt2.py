@@ -157,7 +157,13 @@ class GPT2(Model):
         }
         config = configs[model_type]
         model = cls(config)
-        path = Path("~/.cache/weaver/gpt2.pt").expanduser()
+        path = Path("~/.cache/weaver").expanduser() / f"{model_type}.pt"
+        if not path.exists():
+            raise FileNotFoundError(
+                f"no weights at {path}; "
+                f"run: uv run python -m scripts.export_gpt2 {model_type} "
+                "to export the weights"
+            )
         loaded_dict = torch.load(path, map_location="cpu", weights_only=True)
         model.load_state_dict(loaded_dict, strict=True)
         return model.eval()
