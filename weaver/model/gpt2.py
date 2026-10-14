@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -75,7 +76,7 @@ class Attention(nn.Module):
         self.bias: torch.Tensor
         mask = torch.tril(torch.ones(config.block_size, config.block_size))
         bias_val = mask.view(1, 1, config.block_size, config.block_size)
-        self.register_buffer("bias", bias_val)
+        self.register_buffer("bias", bias_val, persistent=False)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         B, T, C = x.size()
@@ -156,26 +157,9 @@ class GPT2(Model):
         }
         config = configs[model_type]
         model = cls(config)
-
-        # import HERE, not module top — keep HF a dev dep
-        from transformers import GPT2LMHeadModel
-
-        hf = GPT2LMHeadModel.from_pretrained(model_type)  # pyright: ignore[reportUnknownMemberType]
-        # walk hf.state_dict(): skip ("attn","bias") by segment match, transpose the
-        # 4 Conv1D suffixes, copy_ into model.state_dict()[key] under torch.no_grad()
-        hf_dict = hf.state_dict()
-        model_dict = model.state_dict()
-        transposed_keys = [
-            "attn.c_attn.weight",
-            "attn.c_proj.weight",
-            "mlp.c_fc.weight",
-            "mlp.c_proj.weight",
-        ]
-        for key in hf_dict:
-            if any (key.endswith(k) for k in transposed_keys):
-                model_dict[key].copy_(hf_dict[key].transpose(0, 1))
-            else:
-                model_dict[key].copy_(hf_dict[key])
+        path = Path("~/.cache/weaver/gpt2.pt").expanduser()
+        loaded_dict = torch.load(path, map_location="cpu", weights_only=True)
+        model.load_state_dict(loaded_dict, strict=True)
         return model.eval()
 
     
