@@ -78,7 +78,9 @@ class Attention(nn.Module):
         bias_val = mask.view(1, 1, config.block_size, config.block_size)
         self.register_buffer("bias", bias_val, persistent=False)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, cache: torch.Tensor | None = None
+    ) -> torch.Tensor:
         B, T, C = x.size()
         x = self.c_attn(x)
         q, k, v = torch.split(x, self.config.n_embd, dim=2)
@@ -92,26 +94,41 @@ class Attention(nn.Module):
         q = q.view(B, T, n_head, C // n_head).transpose(1, 2) 
         v = v.view(B, T, n_head, C // n_head).transpose(1, 2)
         # dividing by approximate variance for normalization
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        att = att.masked_fill(self.bias[:,:,:T,:T] == 0, float('-inf'))
+        k_cache = cache[0:, 0] if cache is not None else None
+        v_cache = cache[0:, 1] if cache is not None else None
+        t = x.shape[1]
+        n = k_cache.shape[2] if k_cache is not None else t
+
+        if k_cache is not None and v_cache is not None:
+            k_cache[0:, 0:, n - t: n] = k
+            v_cache[0:, 0:, n - t: n] = v
+        else:
+            k_cache = k
+            v_cache = v
+        att = (q @ k_cache.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        att = att.masked_fill(self.bias[:, :, n - t : n, : n] == 0, float('-inf'))
+
         att = F.softmax(att, dim=-1)
         att = self.attn_dropout(att)
-        y = att @ v # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
+
+        y = att @ v_cache # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
         # re-assemble all head outputs side by side
         y = y.transpose(1, 2).contiguous().view(B, T, C)
         return self.resid_dropout(self.c_proj(y))
 
 
 class Block(nn.Module):
-  def __init__(self, config : GPT2Config) -> None:
-    super().__init__()
-    self.ln_1 = LayerNorm(config.n_embd)
-    self.attn = Attention(config)
-    self.ln_2 = LayerNorm(config.n_embd)
-    self.mlp = MLP(config)
-  def forward(self, x : torch.Tensor) -> torch.Tensor:
-    x = x + self.attn(self.ln_1(x))
-    return x + self.mlp(self.ln_2(x))
+    def __init__(self, config : GPT2Config) -> None:
+        super().__init__()
+        self.ln_1 = LayerNorm(config.n_embd)
+        self.attn = Attention(config)
+        self.ln_2 = LayerNorm(config.n_embd)
+        self.mlp = MLP(config)
+    def forward(
+        self, x : torch.Tensor, cache: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        x = x + self.attn(self.ln_1(x), cache)
+        return x + self.mlp(self.ln_2(x))
 class Transformer(nn.Module):
     def __init__(self, config:GPT2Config)->None:
         super().__init__()
@@ -128,20 +145,25 @@ class GPT2(Model):
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.config = config
         self.lm_head.weight = self.transformer.wte.weight
-    def forward(self, idx : torch.Tensor) -> torch.Tensor:
+    def forward(
+            self, 
+            idx : torch.Tensor, 
+            cache: torch.Tensor | None = None
+        ) -> torch.Tensor:
         device = idx.device
         _, t = idx.size()
         msg = (
             f"Cannot forward sequence of length {t}, "
             f"block size is only {self.config.block_size}"
         )
+        n = cache.shape[4] if cache is not None else t
         assert t <= self.config.block_size, msg
-        pos = torch.arange(0, t, dtype=torch.long, device=device) # shape (t)
+        pos = torch.arange(n - t, n, dtype=torch.long, device=device) # shape (t)
         tok_emb = self.transformer.wte(idx) # token embeddings of shape (b, t, n_embd)
         pos_emb = self.transformer.wpe(pos) # position embeddings of shape (t, n_embd)
         x = self.transformer.drop(tok_emb + pos_emb)
-        for block in self.transformer.h:
-            x = block(x)
+        for i, block in enumerate(self.transformer.h):
+            x = block(x, cache[0:, i] if cache is not None else None)
         x = self.transformer.ln_f(x)
         return self.lm_head(x)
     @classmethod

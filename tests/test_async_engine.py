@@ -103,7 +103,9 @@ class CrashingModel(Model):
         super().__init__()
         self._inner = FakeModel(42)
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, idx: torch.Tensor, cache: torch.Tensor | None = None
+    ) -> torch.Tensor:
         if bool((idx == ord("!")).any()):
             raise RuntimeError("model exploded")
         return self._inner.forward(idx)

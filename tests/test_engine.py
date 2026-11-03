@@ -91,7 +91,9 @@ class EosAfterModel(Model):
         self._after = after
         self._calls = 0
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, idx: torch.Tensor, cache: torch.Tensor | None = None
+    ) -> torch.Tensor:
         self._calls += 1
         if self._calls <= self._after:
             return self._inner.forward(idx)
@@ -105,12 +107,16 @@ class RandomTokenModel(Model):
         super().__init__()
         self._vocab_size = vocab_size
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, idx: torch.Tensor, cache: torch.Tensor | None = None
+    ) -> torch.Tensor:
         return torch.tensor([[0 for _ in range(self._vocab_size)]]).reshape(1, 1, -1)
 class NoEvalCheckModel(Model):
     def __init__(self) -> None:
         super().__init__()
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, idx: torch.Tensor, cache: torch.Tensor | None = None
+    ) -> torch.Tensor:
         return torch.tensor([[0 for _ in range(128)]]).reshape(1, 1, -1)
 def eos_engine(after: int) -> tuple[Engine, int]:
     tok = CharTokenizer()

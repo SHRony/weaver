@@ -7,13 +7,18 @@ import torch
 
 class Model(ABC, torch.nn.Module):
   @abstractmethod
-  def forward(self, idx: torch.Tensor) -> torch.Tensor:
+  def forward(
+    self, idx: torch.Tensor, cache: torch.Tensor | None = None
+  ) -> torch.Tensor:
     ...
 class FakeModel(Model):
     def __init__(self, seed: int) -> None:
       super().__init__()
       self._seed = seed
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
+    def forward(
+      self, idx: torch.Tensor,
+      cache: torch.Tensor | None = None
+    ) -> torch.Tensor:
       # sum over all ids, as a Python int
       sm = int(idx.sum().item()) ^ self._seed
       # index == token id now; keep it a letter
