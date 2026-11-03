@@ -100,6 +100,8 @@ class EosAfterModel(Model):
         logits = torch.zeros(1, 1, 128)
         logits[0, 0, self._eos_id] = 1.0
         return logits
+    def build_cache(self, device: torch.device, row_count: int) -> torch.Tensor | None:
+        return None
 class RandomTokenModel(Model):
     """Emits equal probability for each tokens"""
 
@@ -111,6 +113,8 @@ class RandomTokenModel(Model):
         self, idx: torch.Tensor, cache: torch.Tensor | None = None
     ) -> torch.Tensor:
         return torch.tensor([[0 for _ in range(self._vocab_size)]]).reshape(1, 1, -1)
+    def build_cache(self, device: torch.device, row_count: int) -> torch.Tensor | None:
+        return None
 class NoEvalCheckModel(Model):
     def __init__(self) -> None:
         super().__init__()
@@ -118,6 +122,8 @@ class NoEvalCheckModel(Model):
         self, idx: torch.Tensor, cache: torch.Tensor | None = None
     ) -> torch.Tensor:
         return torch.tensor([[0 for _ in range(128)]]).reshape(1, 1, -1)
+    def build_cache(self, device: torch.device, row_count: int) -> torch.Tensor | None:
+        return None
 def eos_engine(after: int) -> tuple[Engine, int]:
     tok = CharTokenizer()
     model = EosAfterModel(tok.eos_id, after)
@@ -220,3 +226,4 @@ def test_seeded_request_works_on_mps() -> None:
     ids1 = [out.new_token_id for out in engine.generate(request)]
     ids2 = [out.new_token_id for out in engine.generate(request)]
     assert len(ids1) == 8 and ids1 == ids2
+

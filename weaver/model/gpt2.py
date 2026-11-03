@@ -166,6 +166,16 @@ class GPT2(Model):
             x = block(x, cache[0:, i] if cache is not None else None)
         x = self.transformer.ln_f(x)
         return self.lm_head(x)
+    def build_cache(self, device: torch.device, row_count: int) -> torch.Tensor | None:
+        return torch.zeros(
+            1,
+            self.config.n_layer,
+            2,
+            self.config.n_head,
+            row_count,
+            self.config.n_embd // self.config.n_head,
+            dtype=torch.float32, device=device
+        )
     @classmethod
     def from_pretrained(cls, model_type:str)->GPT2:
         """Loads pretrained GPT-2 weights from Hugging Face. Implements weight tying."""

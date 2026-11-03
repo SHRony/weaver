@@ -11,7 +11,7 @@ from weaver.engine import Engine
 from weaver.model.gpt2 import GPT2
 from weaver.sampler import GreedySampler
 from weaver.tokenizer import GPT2Tokenizer
-from weaver.types import Request, SamplingParams
+from weaver.types import Output, Request, SamplingParams
 
 
 @pytest.mark.slow
@@ -92,4 +92,24 @@ async def test_async_engine_with_real_gpt2_matches_hf_greedy() -> None:
         await engine.aclose()
     assert engine.free_blocks() == 4
     assert len(outputs) == 4
-
+    
+@pytest.mark.slow
+def test_cache_enabled_works() -> None:
+    engine1 = Engine(
+        GPT2Tokenizer(),
+        GreedySampler(),
+        pool_size=4,
+        model=GPT2.from_pretrained("gpt2"),
+        cache_enabled=True,
+    )
+    engine2 = Engine(
+        GPT2Tokenizer(),
+        GreedySampler(),
+        pool_size=4,
+        model=GPT2.from_pretrained("gpt2"),
+        cache_enabled=False,
+    )
+    request = Request("r1", "hello world", SamplingParams(max_tokens=8), 0.0)
+    outs1 = list[Output](engine1.generate(request))
+    outs2 = list[Output](engine2.generate(request))
+    assert outs1 == outs2

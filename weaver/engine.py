@@ -65,6 +65,7 @@ class Engine:
       sampler: Sampler,
       pool_size:int,
       model: Model,
+      cache_enabled: bool = True,
       device: str = "cpu",
       ) -> None:
         self.tokenizer = tokenizer
@@ -76,11 +77,18 @@ class Engine:
         self._device = device
         self._model.eval()
         self._model.to(device)
+        self._cache_enabled = cache_enabled
     def get_pool_size(self):
       return self._block_pool.get_size()
     def generate(self, request: Request) -> Generator[Output, None, None]:
       with allocate(self._block_pool, self._blocks_needed(request)) as _:
         sequence: TokenSequence = TokenSequence(self.tokenizer.encode(request.prompt))
+        if self._cache_enabled:
+          cache = self._model.build_cache(
+          torch.device(self._device), len(sequence) + request.params.max_tokens
+        )
+        else:
+          cache = None
         sampling_param:SamplingParams = request.params
         finished = False
         prompt_len = len(sequence)
@@ -89,10 +97,18 @@ class Engine:
         random = None
         if request.params.seed is not None:
           random = torch.Generator(self._device).manual_seed(request.params.seed)
+        seen = 0
         while not finished:
           ids = torch.tensor([list(sequence)], device=self._device)
+          n = ids.shape[1]
+          batch = ids[:, seen:]
           with torch.inference_mode():
-            logits = self._model.forward(ids)
+            logits = self._model.forward(
+              batch,
+              cache[:, :, :, :, :n] if cache is not None else None
+          )
+          if cache is not None:
+            seen = n
           token_id = self.sampler.sample(logits[0, -1], sampling_param, random)
           if token_id == self.tokenizer.eos_id:
             finished = True

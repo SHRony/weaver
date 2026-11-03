@@ -11,6 +11,9 @@ class Model(ABC, torch.nn.Module):
     self, idx: torch.Tensor, cache: torch.Tensor | None = None
   ) -> torch.Tensor:
     ...
+  @abstractmethod
+  def build_cache(self, device: torch.device, row_count: int) -> torch.Tensor | None:
+    ...
 class FakeModel(Model):
     def __init__(self, seed: int) -> None:
       super().__init__()
@@ -28,3 +31,5 @@ class FakeModel(Model):
         , device=idx.device
       )
       return logits.reshape(1, 1, -1) 
+    def build_cache(self, device: torch.device, row_count: int) -> torch.Tensor | None:
+      return None

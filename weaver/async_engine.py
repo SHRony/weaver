@@ -39,9 +39,12 @@ class AsyncEngine:
         sampler: Sampler, 
         pool_size: int, 
         model: Model,
+        cache_enabled: bool = True,
         device: str = "cpu",
     ) -> None:
-        self._engine = Engine(tokenizer, sampler, pool_size, model, device)
+        self._engine = Engine(
+            tokenizer, sampler, pool_size, model, cache_enabled, device
+        )
         self._inbound: asyncio.Queue[Inflight] = asyncio.Queue()
         self._response_queues: dict[str, asyncio.Queue[Output]] = {}
         self._response_generators: dict[str, Generator[Output, None, None]] = {}
