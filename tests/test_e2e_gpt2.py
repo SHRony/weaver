@@ -6,6 +6,7 @@ Expected ids are HF's own greedy output for this prompt
 
 import pytest
 
+from bench.baseline_naive import make_prompt
 from weaver.async_engine import AsyncEngine
 from weaver.engine import Engine
 from weaver.model.gpt2 import GPT2
@@ -112,4 +113,27 @@ def test_cache_enabled_works() -> None:
     request = Request("r1", "hello world", SamplingParams(max_tokens=8), 0.0)
     outs1 = list[Output](engine1.generate(request))
     outs2 = list[Output](engine2.generate(request))
+    assert outs1 == outs2
+
+@pytest.mark.slow
+def test_cache_enabled_works_large_context() -> None:
+    engine1 = Engine(
+        GPT2Tokenizer(),
+        GreedySampler(),
+        pool_size=1024,
+        model=GPT2.from_pretrained("gpt2"),
+        cache_enabled=True,
+    )
+    engine2 = Engine(
+        GPT2Tokenizer(),
+        GreedySampler(),
+        pool_size=1024,
+        model=GPT2.from_pretrained("gpt2"),
+        cache_enabled=False,
+    )
+    prompt = make_prompt(GPT2Tokenizer(), 896)
+    request1 = Request("r", prompt, SamplingParams(max_tokens=32), 0.0)
+    request2 = Request("r", prompt, SamplingParams(max_tokens=32), 0.0)
+    outs1 = list[Output](engine1.generate(request1))
+    outs2 = list[Output](engine2.generate(request2))
     assert outs1 == outs2
