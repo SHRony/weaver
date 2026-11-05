@@ -3,20 +3,20 @@
 import torch
 
 from weaver.model.gpt2 import GPT2, GPT2Config
-from weaver.tokenizer import GPT2Tokenizer
 
 n_embd = 32
 n_head = 2
 n_layer = 2
+# GPT-2 BPE ids for "Hello, world!"; hardcoded so the fast tests need no network
+HELLO_WORLD_IDS = [15496, 11, 995, 0]
 def test_kv_cache_random_initialization() -> None:
     max_tokens = 4
     kv_cache = torch.zeros(
         1, n_layer, 2, n_head, max_tokens, n_embd // n_head, dtype=torch.float32
     )
     torch.manual_seed(0)  # pyright: ignore[reportUnknownMemberType]
-    tokenizer = GPT2Tokenizer()
     model = GPT2(GPT2Config(n_embd=n_embd, n_head=n_head, n_layer=n_layer))
-    token_ids = tokenizer.encode("Hello, world!")
+    token_ids = HELLO_WORLD_IDS
     model.eval()
     tokens = torch.tensor([token_ids])
     with torch.inference_mode():    
@@ -32,9 +32,8 @@ def test_kv_cache_decode_write() -> None:
         1, n_layer, 2, n_head, max_tokens, n_embd // n_head, dtype=torch.float32
     )
     torch.manual_seed(0)  # pyright: ignore[reportUnknownMemberType]
-    tokenizer = GPT2Tokenizer()
     model = GPT2(GPT2Config(n_embd=n_embd, n_head=n_head, n_layer=n_layer))
-    token_ids = tokenizer.encode("Hello, world!")
+    token_ids = HELLO_WORLD_IDS
     model.eval()
     tokens = torch.tensor([token_ids])
     with torch.inference_mode():    
@@ -55,9 +54,8 @@ def test_kv_cache_batch_forward() -> None:
         1, n_layer, 2, n_head, max_tokens, n_embd // n_head, dtype=torch.float32
     )
     torch.manual_seed(0)  # pyright: ignore[reportUnknownMemberType]
-    tokenizer = GPT2Tokenizer()
     model = GPT2(GPT2Config(n_embd=n_embd, n_head=n_head, n_layer=n_layer))
-    token_ids = tokenizer.encode("Hello, world!")
+    token_ids = HELLO_WORLD_IDS
     model.eval()
     tokens = torch.tensor([token_ids])
     with torch.inference_mode():    
